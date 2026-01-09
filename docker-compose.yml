@@ -1,12 +1,12 @@
 version: "3.9"
-
+ 
 services:
   # PostgreSQL database for notification service
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER:  app
-      POSTGRES_PASSWORD:  app_password
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app_password
       POSTGRES_DB: appdb
     volumes: 
       - postgres-data:/var/lib/postgresql/data
@@ -14,12 +14,31 @@ services:
       - "5433:5432"
     healthcheck: 
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U app -d appdb"]
-      interval:  5s
-      retries:  10
+      interval: 5s
+      retries: 10
     networks:
       - microservices-network
     restart: unless-stopped
-
+ 
+  # PostgreSQL database for admin service
+  admin-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: adminuser
+      POSTGRES_PASSWORD: adminpass123
+      POSTGRES_DB: admindb
+    volumes: 
+      - admin-db-data:/var/lib/postgresql/data
+    ports: 
+      - "5434:5432"
+    healthcheck: 
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U adminuser -d admindb"]
+      interval: 5s
+      retries: 10
+    networks:
+      - microservices-network
+    restart: unless-stopped
+ 
   # RabbitMQ message broker
   rabbitmq:
     image: rabbitmq:3-management
@@ -39,7 +58,7 @@ services:
     networks:
       - microservices-network
     restart: unless-stopped
-
+ 
   # Authentication service
   auth:
     image: ghcr.io/jamiemonty/cicd2_project_authentication-validation/auth-service:latest
@@ -47,11 +66,12 @@ services:
       - "8001:8000"
     env_file: .env
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
     networks:
       - microservices-network
     restart: unless-stopped
-
+ 
   # Admin/Delete service
   admin: 
     image: ghcr.io/jamiemonty/cicd2_project_delete-admin/admin-service:latest
@@ -59,25 +79,33 @@ services:
       - "8002:8000"
     env_file: .env
     depends_on:
-      - auth
-      - rabbitmq
+      admin-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      auth:
+        condition: service_started
     networks:
       - microservices-network
     restart: unless-stopped
-
+ 
   # File conversion service
   file:
     image: ghcr.io/jamiemonty/cicd2_project_file-conversion/file-conversion-service:latest
     ports:
       - "8003:8000"
     env_file: .env
+    volumes:
+      - converted-files:/app/converted_files
     depends_on:
-      - rabbitmq
-      - auth
+      rabbitmq:
+        condition: service_healthy
+      auth:
+        condition: service_started
     networks:
       - microservices-network
     restart: unless-stopped
-
+ 
   # Notification service
   notification: 
     image: ghcr.io/edmentos/cicdnotif_service:latest 
@@ -88,16 +116,20 @@ services:
       - APP_ENV=docker
       - DATABASE_URL=postgresql://app:app_password@postgres:5432/appdb
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - microservices-network
     restart: unless-stopped
-
+ 
 networks: 
   microservices-network: 
     driver: bridge
-
+ 
 volumes: 
   postgres-data: 
-  rabbitmq-data: 
+  admin-db-data:
+  rabbitmq-data:
+  converted-files:
