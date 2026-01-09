@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   # PostgreSQL database for notification service
   postgres:
@@ -6,12 +8,12 @@ services:
       POSTGRES_USER:  app
       POSTGRES_PASSWORD:  app_password
       POSTGRES_DB: appdb
-    volumes:  
+    volumes: 
       - postgres-data:/var/lib/postgresql/data
     ports: 
       - "5433:5432"
     healthcheck: 
-      test:  ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U app -d appdb"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U app -d appdb"]
       interval:  5s
       retries:  10
     networks:
@@ -29,25 +31,24 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
-    healthcheck:  
+    healthcheck: 
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - microservices-network
-    restart:  unless-stopped
+    restart: unless-stopped
 
   # Authentication service
   auth:
-    image:  ghcr.io/jamiemonty/cicd2_project_authentication-validation/auth-service:latest
+    image: ghcr.io/jamiemonty/cicd2_project_authentication-validation/auth-service:latest
     ports:
       - "8001:8000"
     env_file: .env
     depends_on:
-      rabbitmq:
-        condition:  service_healthy
-    networks: 
+      - rabbitmq
+    networks:
       - microservices-network
     restart: unless-stopped
 
@@ -58,10 +59,8 @@ services:
       - "8002:8000"
     env_file: .env
     depends_on:
-      auth:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
+      - auth
+      - rabbitmq
     networks:
       - microservices-network
     restart: unless-stopped
@@ -72,42 +71,33 @@ services:
     ports:
       - "8003:8000"
     env_file: .env
-    environment:
-      - APP_ENV=docker
     depends_on:
-      auth: 
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks: 
+      - auth
+      - rabbitmq
+    networks:
       - microservices-network
-    volumes:
-      - file-uploads:/app/converted_files
     restart: unless-stopped
 
   # Notification service
   notification: 
-    image:  ghcr.io/edmentos/cicdnotif_service:latest 
-    ports: 
+    image: ghcr.io/edmentos/cicdnotif_service:latest 
+    ports:
       - "8004:8000"
     env_file: .env
     environment:
       - APP_ENV=docker
       - DATABASE_URL=postgresql://app:app_password@postgres:5432/appdb
     depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      - postgres
+      - rabbitmq
     networks:
       - microservices-network
     restart: unless-stopped
 
 networks: 
-  microservices-network:  
+  microservices-network: 
     driver: bridge
 
 volumes: 
-  postgres-data:  
+  postgres-data: 
   rabbitmq-data: 
-  file-uploads:
