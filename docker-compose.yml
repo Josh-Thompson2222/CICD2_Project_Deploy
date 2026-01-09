@@ -84,9 +84,9 @@ services:
     restart: unless-stopped
 
   # Notification service
-  notification:
-    image: ghcr.io/edmentos/cicdnotif_service/notification-service:latest
-    ports: 
+  notification: 
+    image: ghcr.io/edmentos/cicdnotif_service:latest 
+    ports:
       - "8004:8000"
     env_file: .env
     environment:
