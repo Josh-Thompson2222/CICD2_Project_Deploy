@@ -72,8 +72,8 @@ services:
       - "8003:8000"
     env_file: .env
     depends_on:
-      - auth
       - rabbitmq
+      - auth
     networks:
       - microservices-network
     restart: unless-stopped
