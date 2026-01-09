@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - microservices-network
+
+  auth:
+    image: ghcr.io/jamiemonty/cicd2_project_authentication-validation/auth-service:latest
+    ports:
+      - "8001:8000"
+    env_file: .env
+    depends_on:
+      - rabbitmq
+    networks:
+      - microservices-network
+
+  admin:
+    image: ghcr.io/jamiemonty/cicd2_project_delete-admin/admin-service:latest
+    ports:
+      - "8002:8000"
+    env_file: .env
+    depends_on:
+      - auth
+    networks:
+      - microservices-network
+
+  file:
+    image: ghcr.io/jamiemonty/cicd2_project_file-conversion/file-conversion-service:latest
+    env_file: .env
+    depends_on:
+      - rabbitmq
+      - auth
+    networks:
+      - microservices-network
+
+  notification:
+    image: ghcr.io/Edmentos/cicdnotif_service/notification-service:latest
+    env_file: .env
+    depends_on:
+      - rabbitmq
+    networks:
+      - microservices-network
+
+networks:
+  microservices-network:
